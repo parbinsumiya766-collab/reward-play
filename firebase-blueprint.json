@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user balance and points",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email" },
+        "displayName": { "type": "string", "description": "Display name" },
+        "points": { "type": "number", "description": "Reward points earned from games" },
+        "balance": { "type": "number", "description": "Real money balance (converted from points or deposited)" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User role" },
+        "referralCode": { "type": "string", "description": "User's unique referral code" },
+        "referredBy": { "type": "string", "description": "UID of the user who referred this user" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" },
+        "gameStats": {
+          "type": "object",
+          "description": "Statistics for each game",
+          "properties": {
+            "spin": { "$ref": "GameStat" },
+            "snake": { "$ref": "GameStat" },
+            "car": { "$ref": "GameStat" },
+            "crash": { "$ref": "GameStat" }
+          }
+        }
+      },
+      "required": ["uid", "email", "points", "balance", "role", "referralCode"]
+    },
+    "GameStat": {
+      "title": "Game Statistics",
+      "description": "Statistics for a specific game",
+      "type": "object",
+      "properties": {
+        "plays": { "type": "number", "description": "Total times played" },
+        "highScore": { "type": "number", "description": "Highest score achieved" },
+        "totalEarned": { "type": "number", "description": "Total points earned from this game" }
+      }
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Stores deposit and withdrawal requests",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User UID" },
+        "amount": { "type": "number", "description": "Transaction amount" },
+        "type": { "type": "string", "enum": ["deposit", "withdraw", "conversion"], "description": "Type of transaction" },
+        "status": { "type": "string", "enum": ["pending", "completed", "rejected"], "description": "Transaction status" },
+        "method": { "type": "string", "description": "Payment method (Bkash, Nagad, etc.)" },
+        "accountNumber": { "type": "string", "description": "User's payment account number" },
+        "transactionId": { "type": "string", "description": "External transaction ID for deposits" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Transaction timestamp" }
+      },
+      "required": ["uid", "amount", "type", "status", "timestamp"]
+    },
+    "GameSession": {
+      "title": "Game Session",
+      "description": "Stores results of game plays",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User UID" },
+        "gameType": { "type": "string", "enum": ["spin", "snake", "car", "crash"], "description": "Type of game played" },
+        "pointsEarned": { "type": "number", "description": "Points earned in this session" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Session timestamp" }
+      },
+      "required": ["uid", "gameType", "pointsEarned", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Transaction records"
+    },
+    "/game_sessions/{sessionId}": {
+      "schema": "GameSession",
+      "description": "Game play records"
+    }
+  }
+}

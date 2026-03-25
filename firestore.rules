@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - displayName: string
+    //   - points: number (required)
+    //   - balance: number (required)
+    //   - role: string (required, 'user' or 'admin')
+    //   - createdAt: timestamp
+    //
+    // Collection: transactions
+    // Document ID: {transactionId}
+    // Fields:
+    //   - uid: string (required)
+    //   - amount: number (required)
+    //   - type: string (required, 'deposit', 'withdraw', 'conversion')
+    //   - status: string (required, 'pending', 'completed', 'rejected')
+    //   - method: string
+    //   - accountNumber: string
+    //   - transactionId: string
+    //   - timestamp: timestamp (required)
+    //
+    // Collection: game_sessions
+    // Document ID: {sessionId}
+    // Fields:
+    //   - uid: string (required)
+    //   - gameType: string (required, 'spin', 'snake', 'car')
+    //   - pointsEarned: number (required)
+    //   - timestamp: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         (request.auth.token.email == "abirhvjvg72@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'points', 'balance', 'role', 'referralCode']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.points is number &&
+             data.balance is number &&
+             data.role in ['user', 'admin'] &&
+             data.referralCode is string &&
+             (!('referredBy' in data) || data.referredBy is string || data.referredBy == null) &&
+             (!('gameStats' in data) || data.gameStats is map) &&
+             (!('isBanned' in data) || data.isBanned is bool) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['uid', 'amount', 'type', 'status', 'timestamp']) &&
+             data.uid is string &&
+             data.amount is number &&
+             data.type in ['deposit', 'withdraw', 'conversion', 'referral_bonus'] &&
+             data.status in ['pending', 'completed', 'rejected'] &&
+             data.timestamp is timestamp &&
+             (!('method' in data) || data.method is string) &&
+             (!('accountNumber' in data) || data.accountNumber is string) &&
+             (!('transactionId' in data) || data.transactionId is string) &&
+             (!('referredUser' in data) || data.referredUser is string);
+    }
+
+    function isValidGameSession(data) {
+      return data.keys().hasAll(['uid', 'gameType', 'pointsEarned', 'timestamp']) &&
+             data.uid is string &&
+             data.gameType in ['spin', 'snake', 'car', 'car_bet', 'crash'] &&
+             data.pointsEarned is number &&
+             data.timestamp is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'user';
+      allow update: if isAuthenticated() && (
+        (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role && request.resource.data.get('isBanned', false) == resource.data.get('isBanned', false)) ||
+        isAdmin()
+      );
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidTransaction(request.resource.data);
+      allow update: if isAdmin();
+    }
+
+    match /game_sessions/{sessionId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidGameSession(request.resource.data);
+    }
+
+    match /admin_settings/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

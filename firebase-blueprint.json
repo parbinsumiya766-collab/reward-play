@@ -21,7 +21,9 @@
             "spin": { "$ref": "GameStat" },
             "snake": { "$ref": "GameStat" },
             "car": { "$ref": "GameStat" },
-            "crash": { "$ref": "GameStat" }
+            "crash": { "$ref": "GameStat" },
+            "murgi": { "$ref": "GameStat" },
+            "fireshot": { "$ref": "GameStat" }
           }
         }
       },
@@ -59,7 +61,7 @@
       "type": "object",
       "properties": {
         "uid": { "type": "string", "description": "User UID" },
-        "gameType": { "type": "string", "enum": ["spin", "snake", "car", "crash"], "description": "Type of game played" },
+        "gameType": { "type": "string", "enum": ["spin", "snake", "car", "crash", "murgi", "fireshot"], "description": "Type of game played" },
         "pointsEarned": { "type": "number", "description": "Points earned in this session" },
         "timestamp": { "type": "string", "format": "date-time", "description": "Session timestamp" }
       },

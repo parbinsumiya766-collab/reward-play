@@ -85,7 +85,7 @@ service cloud.firestore {
     function isValidGameSession(data) {
       return data.keys().hasAll(['uid', 'gameType', 'pointsEarned', 'timestamp']) &&
              data.uid is string &&
-             data.gameType in ['spin', 'snake', 'car', 'car_bet', 'crash'] &&
+             data.gameType in ['spin', 'snake', 'car', 'car_bet', 'crash', 'murgi', 'fireshot'] &&
              data.pointsEarned is number &&
              data.timestamp is timestamp;
     }

@@ -95,7 +95,7 @@ export function stopMusic() {
   }
 }
 
-export function playSound(type: 'spin' | 'win' | 'eat' | 'fail' | 'car' | 'horn') {
+export function playSound(type: 'spin' | 'win' | 'eat' | 'fail' | 'car' | 'horn' | 'shot') {
   const oscillator = audioCtx.createOscillator();
   const gainNode = audioCtx.createGain();
 
@@ -159,6 +159,15 @@ export function playSound(type: 'spin' | 'win' | 'eat' | 'fail' | 'car' | 'horn'
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
       oscillator.start(now);
       oscillator.stop(now + 0.3);
+      break;
+    case 'shot':
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(100, now);
+      oscillator.frequency.exponentialRampToValueAtTime(10, now + 0.2);
+      gainNode.gain.setValueAtTime(0.2, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      oscillator.start(now);
+      oscillator.stop(now + 0.2);
       break;
   }
 }

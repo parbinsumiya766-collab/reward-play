@@ -22,8 +22,11 @@ export default function AdminPanel() {
 
   // Games State
   const [crashMultiplier, setCrashMultiplier] = useState('');
+  const [murgiMultiplier, setMurgiMultiplier] = useState('');
+  const [fireshotMultiplier, setFireshotMultiplier] = useState('');
   const [spinResult, setSpinResult] = useState('');
   const [carSpeed, setCarSpeed] = useState('');
+  const [musicUrl, setMusicUrl] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,7 +168,7 @@ export default function AdminPanel() {
     }
   };
 
-  const updateGameSettings = async (game: 'crash' | 'spin' | 'car') => {
+  const updateGameSettings = async (game: 'crash' | 'spin' | 'car' | 'murgi' | 'music' | 'fireshot') => {
     setLoading(true);
     try {
       const ref = doc(db, 'admin_settings', 'games');
@@ -179,6 +182,26 @@ export default function AdminPanel() {
         await setDoc(ref, { crashNextMultiplier: val }, { merge: true });
         setMessage({ text: `Next crash set to ${val}x`, type: 'success' });
         setCrashMultiplier('');
+      } else if (game === 'murgi') {
+        const val = Number(murgiMultiplier);
+        if (isNaN(val) || val <= 0) {
+          setMessage({ text: 'Invalid murgi multiplier', type: 'error' });
+          setLoading(false);
+          return;
+        }
+        await setDoc(ref, { murgiNextMultiplier: val }, { merge: true });
+        setMessage({ text: `Next murgi crash set to ${val}x`, type: 'success' });
+        setMurgiMultiplier('');
+      } else if (game === 'fireshot') {
+        const val = Number(fireshotMultiplier);
+        if (isNaN(val) || val <= 0) {
+          setMessage({ text: 'Invalid fireshot multiplier', type: 'error' });
+          setLoading(false);
+          return;
+        }
+        await setDoc(ref, { fireshotNextMultiplier: val }, { merge: true });
+        setMessage({ text: `Next fireshot miss set to ${val}x`, type: 'success' });
+        setFireshotMultiplier('');
       } else if (game === 'spin') {
         const val = Number(spinResult);
         if (isNaN(val)) {
@@ -199,6 +222,15 @@ export default function AdminPanel() {
         await setDoc(ref, { carSpeedMultiplier: val }, { merge: true });
         setMessage({ text: `Car game speed multiplier set to ${val}x`, type: 'success' });
         setCarSpeed('');
+      } else if (game === 'music') {
+        if (!musicUrl) {
+          setMessage({ text: 'Please enter a music URL', type: 'error' });
+          setLoading(false);
+          return;
+        }
+        await setDoc(ref, { musicUrl: musicUrl }, { merge: true });
+        setMessage({ text: 'Background music updated', type: 'success' });
+        setMusicUrl('');
       }
     } catch (err: any) {
       console.error("Failed to update game settings:", err);
@@ -208,27 +240,36 @@ export default function AdminPanel() {
     }
   };
 
-  const clearGameSetting = async (game: 'crash' | 'spin' | 'car') => {
-    setLoading(true);
-    try {
-      const ref = doc(db, 'admin_settings', 'games');
-      if (game === 'crash') {
-        await setDoc(ref, { crashNextMultiplier: null }, { merge: true });
-        setMessage({ text: 'Cleared crash multiplier', type: 'success' });
-      } else if (game === 'spin') {
-        await setDoc(ref, { spinNextResult: null }, { merge: true });
-        setMessage({ text: 'Cleared spin result', type: 'success' });
-      } else if (game === 'car') {
-        await setDoc(ref, { carSpeedMultiplier: null }, { merge: true });
-        setMessage({ text: 'Cleared car game speed', type: 'success' });
+    const clearGameSetting = async (game: 'crash' | 'spin' | 'car' | 'murgi' | 'music' | 'fireshot') => {
+      setLoading(true);
+      try {
+        const ref = doc(db, 'admin_settings', 'games');
+        if (game === 'crash') {
+          await setDoc(ref, { crashNextMultiplier: null }, { merge: true });
+          setMessage({ text: 'Cleared crash multiplier', type: 'success' });
+        } else if (game === 'murgi') {
+          await setDoc(ref, { murgiNextMultiplier: null }, { merge: true });
+          setMessage({ text: 'Cleared murgi multiplier', type: 'success' });
+        } else if (game === 'fireshot') {
+          await setDoc(ref, { fireshotNextMultiplier: null }, { merge: true });
+          setMessage({ text: 'Cleared fireshot multiplier', type: 'success' });
+        } else if (game === 'spin') {
+          await setDoc(ref, { spinNextResult: null }, { merge: true });
+          setMessage({ text: 'Cleared spin result', type: 'success' });
+        } else if (game === 'car') {
+          await setDoc(ref, { carSpeedMultiplier: null }, { merge: true });
+          setMessage({ text: 'Cleared car game speed', type: 'success' });
+        } else if (game === 'music') {
+          await setDoc(ref, { musicUrl: null }, { merge: true });
+          setMessage({ text: 'Stopped background music', type: 'success' });
+        }
+      } catch (err: any) {
+        console.error("Failed to clear game setting:", err);
+        setMessage({ text: 'Failed to clear game setting', type: 'error' });
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      console.error("Failed to clear game setting:", err);
-      setMessage({ text: 'Failed to clear game setting', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   if (!isAuthenticated) {
     return (
@@ -479,6 +520,83 @@ export default function AdminPanel() {
                 </button>
                 <button onClick={() => clearGameSetting('spin')} className="bg-zinc-700 hover:bg-zinc-600 px-4 rounded-xl font-bold transition-all">
                   Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-orange-500/10 rounded-2xl text-orange-500">
+                  <Gamepad2 size={24} />
+                </div>
+                <h3 className="text-xl font-bold">Murgi Game Control</h3>
+              </div>
+              <p className="text-zinc-400 text-sm mb-4">Set the exact multiplier where the Murgi will run away in the next round.</p>
+              <div className="flex gap-2">
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={murgiMultiplier}
+                  onChange={(e) => setMurgiMultiplier(e.target.value)}
+                  placeholder="e.g. 1.50"
+                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-orange-500"
+                />
+                <button onClick={() => updateGameSettings('murgi')} className="bg-orange-600 hover:bg-orange-500 px-6 rounded-xl font-bold transition-all">
+                  Set
+                </button>
+                <button onClick={() => clearGameSetting('murgi')} className="bg-zinc-700 hover:bg-zinc-600 px-4 rounded-xl font-bold transition-all">
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-orange-600/10 rounded-2xl text-orange-600">
+                  <Gamepad2 size={24} />
+                </div>
+                <h3 className="text-xl font-bold">Fire Shot Control</h3>
+              </div>
+              <p className="text-zinc-400 text-sm mb-4">Set the exact multiplier where the shot will miss in the next round.</p>
+              <div className="flex gap-2">
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={fireshotMultiplier}
+                  onChange={(e) => setFireshotMultiplier(e.target.value)}
+                  placeholder="e.g. 1.50"
+                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-orange-600"
+                />
+                <button onClick={() => updateGameSettings('fireshot')} className="bg-orange-600 hover:bg-orange-500 px-6 rounded-xl font-bold transition-all">
+                  Set
+                </button>
+                <button onClick={() => clearGameSetting('fireshot')} className="bg-zinc-700 hover:bg-zinc-600 px-4 rounded-xl font-bold transition-all">
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-500">
+                  <RefreshCw size={24} />
+                </div>
+                <h3 className="text-xl font-bold">Music Control</h3>
+              </div>
+              <p className="text-zinc-400 text-sm mb-4">Play background music for all users. Enter a direct audio URL (mp3).</p>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={musicUrl}
+                  onChange={(e) => setMusicUrl(e.target.value)}
+                  placeholder="https://example.com/music.mp3"
+                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-purple-500"
+                />
+                <button onClick={() => updateGameSettings('music')} className="bg-purple-600 hover:bg-purple-500 px-6 rounded-xl font-bold transition-all">
+                  Play
+                </button>
+                <button onClick={() => clearGameSetting('music')} className="bg-zinc-700 hover:bg-zinc-600 px-4 rounded-xl font-bold transition-all">
+                  Stop
                 </button>
               </div>
             </div>

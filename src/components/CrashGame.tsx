@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plane, TrendingUp, Wallet, AlertCircle, CheckCircle2, History, Play, StopCircle, Coins, Users as UsersIcon, Star } from 'lucide-react';
+import { Plane, TrendingUp, Wallet, AlertCircle, CheckCircle2, History, Play, StopCircle, Coins, Users as UsersIcon, Star, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '../firebase';
-import { doc, updateDoc, increment, addDoc, collection, serverTimestamp, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, addDoc, collection, serverTimestamp, onSnapshot, getDoc, query, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrorHandler';
 import { playSound, startPlaneSound, stopPlaneSound, updatePlanePitch } from '../lib/audioUtils';
 
@@ -101,6 +101,8 @@ export default function CrashGame() {
   const [isBetPlacedTemp, setIsBetPlacedTemp] = useState(false);
   const [adminCrashPoint, setAdminCrashPoint] = useState<number | null>(null);
   const [lastWin, setLastWin] = useState<{ points: number; multiplier: number } | null>(null);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   
   const [autoCashOutEnabled, setAutoCashOutEnabled] = useState(false);
   const [autoCashOutMultiplier, setAutoCashOutMultiplier] = useState<string>('2.00');
@@ -154,6 +156,17 @@ export default function CrashGame() {
   // Fetch user points
   useEffect(() => {
     if (!auth.currentUser) return;
+
+    const q = query(
+      collection(db, 'users'),
+      orderBy('gameStats.crash.highScore', 'desc'),
+      limit(500)
+    );
+    const leaderboardUnsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLeaderboard(data);
+    });
+
     const unsubscribe = onSnapshot(doc(db, 'users', auth.currentUser.uid), (doc) => {
       if (doc.exists()) {
         setUserPoints(doc.data().points || 0);
@@ -175,6 +188,7 @@ export default function CrashGame() {
     return () => {
       unsubscribe();
       adminUnsubscribe();
+      leaderboardUnsubscribe();
     };
   }, []);
 
@@ -442,26 +456,86 @@ export default function CrashGame() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 relative">
       {/* Top History Bar */}
-      <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800 rounded-2xl p-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-2 px-2 border-r border-zinc-800 mr-2">
-          <History className="w-4 h-4 text-zinc-500" />
-          <span className="text-[10px] font-bold text-zinc-500 uppercase">History</span>
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex-1 bg-zinc-900/50 backdrop-blur-md border border-zinc-800 rounded-2xl p-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 px-2 border-r border-zinc-800 mr-2">
+            <History className="w-4 h-4 text-zinc-500" />
+            <span className="text-[10px] font-bold text-zinc-500 uppercase">History</span>
+          </div>
+          {history.map((h, i) => (
+            <motion.span 
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              key={i} 
+              className={`px-3 py-1 rounded-full text-[10px] font-black border flex-shrink-0 ${
+                h >= 10.0 ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
+                h >= 2.0 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 
+                'bg-zinc-800/50 text-zinc-500 border-zinc-700/50'
+              }`}
+            >
+              {h.toFixed(2)}x
+            </motion.span>
+          ))}
         </div>
-        {history.map((h, i) => (
-          <motion.span 
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            key={i} 
-            className={`px-3 py-1 rounded-full text-[10px] font-black border flex-shrink-0 ${
-              h >= 10.0 ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
-              h >= 2.0 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 
-              'bg-zinc-800/50 text-zinc-500 border-zinc-700/50'
-            }`}
-          >
-            {h.toFixed(2)}x
-          </motion.span>
-        ))}
+        <button 
+          onClick={() => setShowLeaderboard(!showLeaderboard)}
+          className={`p-3 rounded-2xl border transition-all shrink-0 ${showLeaderboard ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'}`}
+        >
+          <Trophy size={20} />
+        </button>
       </div>
+
+      <AnimatePresence>
+        {showLeaderboard && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden"
+          >
+            <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+                <Trophy className="text-yellow-500" /> Top 500 Crash Players
+              </h2>
+              <button onClick={() => setShowLeaderboard(false)} className="text-zinc-500 hover:text-white">Close</button>
+            </div>
+            <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+              <table className="w-full text-left">
+                <thead className="bg-zinc-950/50 text-zinc-500 text-xs uppercase sticky top-0 z-10">
+                  <tr>
+                    <th className="p-4">Rank</th>
+                    <th className="p-4">Player</th>
+                    <th className="p-4">Best Multiplier</th>
+                    <th className="p-4">Total Earned</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/50">
+                  {leaderboard.map((player, index) => (
+                    <tr key={player.id} className={`hover:bg-zinc-800/30 transition-colors ${player.id === auth.currentUser?.uid ? 'bg-emerald-500/5' : ''}`}>
+                      <td className="p-4">
+                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${
+                          index === 0 ? 'bg-yellow-500 text-black' : 
+                          index === 1 ? 'bg-zinc-300 text-black' : 
+                          index === 2 ? 'bg-orange-400 text-black' : 
+                          'bg-zinc-800 text-zinc-400'
+                        }`}>
+                          {index + 1}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <p className="font-bold text-white">{player.displayName || 'Anonymous'}</p>
+                        <p className="text-xs text-zinc-500">{player.email?.split('@')[0]}</p>
+                      </td>
+                      <td className="p-4 font-mono font-bold text-emerald-500">{(player.gameStats?.crash?.highScore / 100)?.toFixed(2) || '0.00'}x</td>
+                      <td className="p-4 font-mono font-bold text-emerald-500">৳{(player.gameStats?.crash?.totalEarned / 100)?.toFixed(2) || '0.00'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Win Modal */}
       <AnimatePresence>

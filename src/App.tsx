@@ -17,7 +17,8 @@ import {
   Gift,
   Plane,
   Shield,
-  LineChart
+  LineChart,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Auth from './components/Auth';
@@ -25,6 +26,8 @@ import SpinWheel from './components/SpinWheel';
 import SnakeGame from './components/SnakeGame';
 import CarRaceGame from './components/CarRaceGame';
 import CrashGame from './components/CrashGame';
+import MurgiGame from './components/MurgiGame';
+import FireShotGame from './components/FireShotGame';
 import Wallet from './components/Wallet';
 import ReferAndEarn from './components/ReferAndEarn';
 import AIChat from './components/AIChat';
@@ -52,6 +55,8 @@ interface UserProfile {
     snake: GameStat;
     car: GameStat;
     crash: GameStat;
+    murgi: GameStat;
+    fireshot: GameStat;
   };
 }
 
@@ -59,8 +64,36 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'games' | 'wallet' | 'refer' | 'admin'>('dashboard');
-  const [activeGame, setActiveGame] = useState<'spin' | 'snake' | 'car' | 'crash' | null>(null);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'games' | 'wallet' | 'refer' | 'admin' | 'trading'>('dashboard');
+  const [activeGame, setActiveGame] = useState<'spin' | 'snake' | 'car' | 'crash' | 'murgi' | 'fireshot' | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [musicUrl, setMusicUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'admin_settings', 'games'), (doc) => {
+      if (doc.exists()) {
+        setMusicUrl(doc.data().musicUrl || null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   useEffect(() => {
     // Handle referral code from URL
@@ -222,12 +255,25 @@ export default function App() {
 
       {/* Main Content */}
       <main className="p-4 md:p-8 max-w-6xl mx-auto">
+        {musicUrl && (
+          <audio src={musicUrl} autoPlay loop className="hidden" />
+        )}
         <header className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-bold text-white capitalize">{activeTab}</h2>
             <p className="text-zinc-500">Welcome back, {profile?.displayName?.split(' ')[0]}</p>
           </div>
           <div className="flex gap-3">
+            {deferredPrompt && (
+              <button 
+                onClick={handleInstallClick}
+                className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-2xl flex items-center gap-2 font-bold transition-colors shadow-lg shadow-orange-900/20"
+                title="Install App"
+              >
+                <Download size={20} />
+                <span className="hidden sm:inline">Install App</span>
+              </button>
+            )}
             <button 
               onClick={handleHelp}
               className="bg-zinc-900 border border-zinc-800 p-2 rounded-2xl text-zinc-400 hover:text-emerald-500 transition-colors"
@@ -322,6 +368,16 @@ export default function App() {
                     icon={<Plane className="text-red-500" />}
                     stats={profile?.gameStats?.crash}
                   />
+                  <GameStatCard 
+                    title="Murgi Game" 
+                    icon={<Gamepad2 className="text-orange-500" />}
+                    stats={profile?.gameStats?.murgi}
+                  />
+                  <GameStatCard 
+                    title="Fire Shot" 
+                    icon={<Gamepad2 className="text-orange-600" />}
+                    stats={profile?.gameStats?.fireshot}
+                  />
                 </div>
               </div>
 
@@ -377,6 +433,20 @@ export default function App() {
                     onClick={() => setActiveGame('crash')}
                     color="from-red-500/20 to-red-600/5"
                   />
+                  <GameCard 
+                    title="Murgi Game" 
+                    desc="Bet your points and cash out before the Murgi runs away! High risk, high reward."
+                    icon={<Gamepad2 className="w-12 h-12 text-orange-500" />}
+                    onClick={() => setActiveGame('murgi')}
+                    color="from-orange-500/20 to-orange-600/5"
+                  />
+                  <GameCard 
+                    title="Fire Shot" 
+                    desc="Shoot the targets to increase your multiplier! Don't miss or you'll lose your bet."
+                    icon={<Gamepad2 className="w-12 h-12 text-orange-600" />}
+                    onClick={() => setActiveGame('fireshot')}
+                    color="from-orange-600/20 to-orange-700/5"
+                  />
                 </div>
               ) : (
                 <div className="relative">
@@ -386,7 +456,7 @@ export default function App() {
                   >
                     <ChevronRight className="rotate-180" /> Back to Games
                   </button>
-                  {activeGame === 'spin' ? <SpinWheel /> : activeGame === 'snake' ? <SnakeGame /> : activeGame === 'car' ? <CarRaceGame /> : <CrashGame />}
+                  {activeGame === 'spin' ? <SpinWheel /> : activeGame === 'snake' ? <SnakeGame /> : activeGame === 'car' ? <CarRaceGame /> : activeGame === 'crash' ? <CrashGame /> : activeGame === 'murgi' ? <MurgiGame /> : <FireShotGame />}
                 </div>
               )}
             </motion.div>
